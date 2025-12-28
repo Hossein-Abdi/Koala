@@ -44,7 +44,7 @@ def lr_multiplier_functor(batches_per_epoch, base_lr=1.0, warmup_iters=0, milest
 
 
 def train(train_loader, model, criterion, optimizer, epoch, num_epochs,
-          is_koala=False, print_freq=50, calculate_lr=None):
+          is_koala=False, print_freq=50, calculate_lr=None, device=torch.device("cpu")):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -59,8 +59,8 @@ def train(train_loader, model, criterion, optimizer, epoch, num_epochs,
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input = input.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+        input = input.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
 
         if is_koala:
             optimizer.predict()
@@ -104,7 +104,7 @@ def train(train_loader, model, criterion, optimizer, epoch, num_epochs,
             log_value('train_error', top1.get_last_val(), epoch * len(train_loader) + i)
 
 
-def validate(val_loader, model, criterion, epoch, num_epochs, print_freq=50):
+def validate(val_loader, model, criterion, epoch, num_epochs, print_freq=50, device=torch.device("cpu")):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -115,8 +115,8 @@ def validate(val_loader, model, criterion, epoch, num_epochs, print_freq=50):
 
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        input = input.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+        input = input.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
 
         with torch.no_grad():
             output = model(input)

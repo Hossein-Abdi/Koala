@@ -16,6 +16,13 @@ from models import models
 from optimizers import optimizers
 from training_funcs import train, validate, lr_multiplier_functor
 
+# Check Device configuration
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -104,7 +111,7 @@ def main():
     # Configure model
     model = models[args.model](num_classes=num_classes)
     torch.backends.cudnn.benchmark = True
-    model = torch.nn.DataParallel(model, device_ids=list(range(args.num_gpus))).cuda()
+    model = torch.nn.DataParallel(model, device_ids=list(range(args.num_gpus))).to(device)
     if args.resume_network is not None:
         model.load_state_dict(torch.load(args.resume_network))
 
@@ -147,7 +154,7 @@ def main():
                                          gamma=args.step_gamma)
 
     # Configure criterion
-    criterion = nn.CrossEntropyLoss(reduction='none').cuda()
+    criterion = nn.CrossEntropyLoss(reduction='none').to(device)
 
     # Start training
     start_epoch = 0
@@ -157,10 +164,10 @@ def main():
     for epoch in range(start_epoch, args.num_epochs):
         # Train for one epoch
         train(train_loader, model, criterion, optimizer, epoch,
-              is_koala=is_koala, num_epochs=args.num_epochs, calculate_lr=calculate_lr)
+              is_koala=is_koala, num_epochs=args.num_epochs, calculate_lr=calculate_lr, device=device)
 
         # Evaluate on validation set
-        err1, err5 = validate(val_loader, model, criterion, epoch, num_epochs=args.num_epochs)
+        err1, err5 = validate(val_loader, model, criterion, epoch, num_epochs=args.num_epochs, device=device)
 
         if epoch % args.saving_freq == 0:
             torch.save(model.state_dict(), 'runs/{}/model_ckpt_{}'.format(args.exp, epoch))
