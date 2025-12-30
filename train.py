@@ -2,6 +2,9 @@ import argparse
 import json
 import random
 
+import wandb
+wandb.login()
+
 import numpy as np
 
 import torch
@@ -57,6 +60,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+    wandb.init(
+        project="koala-test", # project name here
+        entity="hossein_abdi-the-university-of-manchester",
+        config=args                   # command line arguments
+    )
+
     if args.exp == 'AUTO':
         args.exp = f'{args.model}_{args.optim}_{args.data}_{args.batch_size}_{args.num_epochs}_' \
                    f'{args.weight_decay}_{args.warmup_epochs}_{args.scheduler}_{args.lr}_{args.momentum}_' \

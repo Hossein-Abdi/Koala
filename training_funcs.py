@@ -1,5 +1,7 @@
 import time
 
+import wandb
+
 import torch
 
 from tensorboard_logger import log_value
@@ -102,6 +104,12 @@ def train(train_loader, model, criterion, optimizer, epoch, num_epochs,
             # log to TensorBoard
             log_value('train_loss', losses.get_last_val(), epoch * len(train_loader) + i)
             log_value('train_error', top1.get_last_val(), epoch * len(train_loader) + i)
+        
+        wandb.log({
+            "train_loss": loss_mean.item(),
+            "train_1err": err1.item(),
+            "train_5err": err5.item(),
+        })
 
 
 def validate(val_loader, model, criterion, epoch, num_epochs, print_freq=50, device=torch.device("cpu")):
@@ -148,5 +156,11 @@ def validate(val_loader, model, criterion, epoch, num_epochs, print_freq=50, dev
     log_value('val_loss', losses.get_avg(), epoch)
     log_value('val_top1', top1.get_avg(), epoch)
     log_value('val_top5', top5.get_avg(), epoch)
+
+    wandb.log({
+        "val_loss": loss.item(),
+        "val_1err": err1.item(),
+        "val_5err": err5.item(),
+    })
 
     return top1.get_avg(), top5.get_avg()
