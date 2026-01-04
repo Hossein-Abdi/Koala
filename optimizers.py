@@ -1,6 +1,6 @@
 import torch.optim as optim
 
-from koala import VanillaKOALA, MomentumKOALA
+from koala import VanillaKOALA, MomentumKOALA, RL_KOALA
 
 
 def _adadelta(parameters, **kwargs):
@@ -22,6 +22,8 @@ def _koala_v(parameters, **kwargs):
 def _koala_m(parameters, **kwargs):
     return MomentumKOALA(parameters, **kwargs)
 
+def _koala_rl(parameters, **kwargs):
+    return RL_KOALA(parameters, **kwargs)
 
 def _rmsprop(parameters, **kwargs):
     return optim.RMSprop(parameters, **kwargs)
@@ -37,6 +39,7 @@ optimizers = {
     'adam': _adam,
     'koala-v': _koala_v,
     'koala-m': _koala_m,
+    'koala-rl': _koala_rl,
     'rmsprop': _rmsprop,
     'sgd': _sgd
 }
