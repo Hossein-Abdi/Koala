@@ -224,3 +224,77 @@ class MomentumKOALA(KOALABase):
         PHHS = torch.matmul(self.state["Pt"], HHS)
         PHHSP = torch.matmul(PHHS, self.state["Pt"].t())
         self.state["Pt"] = self.state["Pt"] - PHHSP
+
+
+class RL_KOALA(KOALABase):
+    def __init__(
+            self,
+            params,
+            sigma: float = 1,
+            q: float = 1,
+            r: float = None,
+            alpha_r: float = 0.9,
+            weight_decay: float = 0.0,
+            lr: float = 1,
+            **kwargs):
+        """
+        Implementation of the KOALA-V(Vanilla) optimizer
+
+        :param params: parameters to optimize
+        :param sigma: initial value of P_k
+        :param q: fixed constant Q_k
+        :param r: fixed constant R_k (None for online estimation)
+        :param alpha_r: smoothing coefficient for online estimation of R_k
+        :param weight_decay: weight decay
+        :param lr: learning rate
+        :param kwargs:
+        """
+        super(RL_KOALA, self).__init__(params, **kwargs)
+
+        self.eps = 1e-9
+
+        for group in self.param_groups:
+            group["lr"] = lr
+
+        # Initialize state
+        self.state["sigma"] = sigma
+        self.state["q"] = q
+        if r is not None:
+            self.state["r"] = r
+        else:
+            self.state["r"] = ExpAverage(alpha_r, 1.0)
+        self.state["weight_decay"] = weight_decay
+
+    @torch.no_grad()
+    def predict(self):
+        self.state["sigma"] += self.state["q"]
+
+    @torch.no_grad()
+    def update(self, loss: torch.FloatTensor, loss_var: torch.FloatTensor):
+        if isinstance(self.state["r"], ExpAverage):
+            self.state["r"].update(loss_var)
+            cur_r = self.state["r"].get_avg()
+        else:
+            cur_r = self.state["r"]
+
+        max_grad_entries = list()
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None or p.grad.norm(p=2) < self.eps:
+                    continue
+
+                layer_grad = p.grad + self.state["weight_decay"] * p
+                layer_grad_norm = layer_grad.norm(p=2)
+
+                s = self.state["sigma"] * (layer_grad_norm ** 2) + cur_r
+
+                target_loss = 1.0e5
+                layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - target_loss
+                scale = group["lr"] * layer_loss * self.state["sigma"] / s
+                p.data.add_(-scale * p.grad)
+
+                max_grad_entries.append(layer_grad_norm ** 2 / s)
+
+        hh_approx = torch.max(torch.stack(max_grad_entries))
+
+        self.state["sigma"] -= self.state["sigma"] ** 2 * hh_approx

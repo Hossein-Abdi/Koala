@@ -61,8 +61,9 @@ def parse_args():
 def main():
     args = parse_args()
     wandb.init(
-        project="koala-test", # project name here
+        project="koala-adam-sgd", # project name here
         entity="hossein_abdi-the-university-of-manchester",
+        name=args.exp,
         config=args                   # command line arguments
     )
 
