@@ -46,15 +46,15 @@ def parse_args():
     # parser.add_argument('--model', type=str, help='Model name: resnet18', default='resnet18_cifar')
     parser.add_argument('--optim', type=str, help='Optimizer name: adagrad, sgd, koala-v/m...',
                         choices=list(optimizers.keys()), required=True)
-    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='Pendulum-v1')
+    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='MountainCarContinuous-v0')
     parser.add_argument('--total-timesteps', type=int, help='total timesteps of the experiments', default=1000000)
     parser.add_argument('--num-envs', type=int, help='the number of parallel game environments', default=1)
     parser.add_argument('--num-steps', type=int, help='the number of steps to run in each environment per policy rollout', default=2048)
     parser.add_argument('--gamma', type=float, help='the discount factor gamma', default=0.99)
     parser.add_argument('--gae-lambda', type=float, help='the lambda for the general advantage estimation', default=0.95)
-    parser.add_argument('--batch-size', type=int, help='Batch size', default=32)
+    # parser.add_argument('--batch-size', type=int, help='Batch size', default=32)
     parser.add_argument('--num-minibatches', type=int, help='Number of Mini Batch', default=32)
-    parser.add_argument('--update-epochs', type=int, help='the K epochs to update the policy', default=10)
+    parser.add_argument('--update-epochs', type=int, help='the K epochs to update the policy', default=1) # original default: 10
     parser.add_argument('--norm-adv', type=bool, help='Toggles advantages normalization', default=True)
     parser.add_argument('--ent-coef', type=float, help='coefficient of the entropy', default=0.0)
     parser.add_argument('--vf-coef', type=float, help='coefficient of the value function', default=0.5)
@@ -68,7 +68,7 @@ def parse_args():
     parser.add_argument('--weight-decay', type=float, default=5e-4, help='Weight decay')
     parser.add_argument('--data-dir', type=str, default='./data', help='Dataset location')
     parser.add_argument('--warmup-epochs', type=int, help='Warmup epochs, set to 0 to disable', default=0)
-    parser.add_argument('--scheduler', type=str, default='step', choices=['none', 'step'], help='lr scheduler type')
+    parser.add_argument('--scheduler', type=str, default='none', choices=['none', 'step'], help='lr scheduler type') # original default: step
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate for non-koala optimizers (note that the default is for SGD not Adam)')
     parser.add_argument('--momentum', type=float, default=0.9, help="SGD's momentum")
@@ -327,6 +327,16 @@ def main():
                     optimizer.update(loss, loss_var)
                 else:
                     optimizer.step()
+                
+                wandb.log({
+                    "loss": loss.item(),
+                    "pg_loss": pg_loss.item(),
+                    "v_loss": v_loss.item(),
+                    "entropy_loss": entropy_loss.item(),
+                    "advantage": b_advantages.mean(),
+                    "return": b_returns.mean(),
+                    "value": b_values.mean(),
+                })
 
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -343,14 +353,14 @@ def main():
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
-        wandb.log({
-            "advantage": b_advantages.mean(),
-            "return": b_returns.mean(),
-            "value": b_values.mean(),
-            "pg_loss": pg_loss.item(),
-            "v_loss": v_loss.item(),
-            "entropy_loss": entropy_loss.item(),
-        })
+        # wandb.log({
+        #     "advantage": b_advantages.mean(),
+        #     "return": b_returns.mean(),
+        #     "value": b_values.mean(),
+        #     "pg_loss": pg_loss.item(),
+        #     "v_loss": v_loss.item(),
+        #     "entropy_loss": entropy_loss.item(),
+        # })
 
     # if args.save_model:
     #     model_path = f"runs/{args.exp}/{args.exp_name}.cleanrl_model"
