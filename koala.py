@@ -290,7 +290,7 @@ class RL_KOALA(KOALABase):
 
                 s = self.state["sigma"] * (layer_grad_norm ** 2) + cur_r
 
-                layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"]
+                layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"] 
                 scale = group["lr"] * layer_loss * self.state["sigma"] / s
                 p.data.add_(-scale * p.grad)
 
