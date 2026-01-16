@@ -152,7 +152,7 @@ def main():
         args.exp = f'{args.env_id} {args.optim} {args.target_loss}' 
     
     wandb.init(
-        project="koala-rl", # project name 
+        project="koala-rl1", # project name 
         entity="hossein_abdi-the-university-of-manchester",
         name=args.exp,
         config=args                   # command line arguments
@@ -307,7 +307,8 @@ def main():
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
                 # Policy loss
-                pg_loss = -(newlogprob * mb_advantages).mean()
+                # pg_loss = -(newlogprob * mb_advantages).mean()
+                pg_loss = -(torch.exp(newlogprob-b_logprobs[mb_inds])* mb_advantages).mean()
 
                 # Value loss
                 newvalue = newvalue.view(-1)
@@ -354,12 +355,13 @@ def main():
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
         # wandb.log({
-        #     "advantage": b_advantages.mean(),
-        #     "return": b_returns.mean(),
-        #     "value": b_values.mean(),
+        #     "loss": loss.item(),
         #     "pg_loss": pg_loss.item(),
         #     "v_loss": v_loss.item(),
         #     "entropy_loss": entropy_loss.item(),
+        #     "advantage": b_advantages.mean(),
+        #     "return": b_returns.mean(),
+        #     "value": b_values.mean(),
         # })
 
     # if args.save_model:
