@@ -53,8 +53,8 @@ def parse_args():
     parser.add_argument('--gamma', type=float, help='the discount factor gamma', default=0.99)
     parser.add_argument('--gae-lambda', type=float, help='the lambda for the general advantage estimation', default=0.95)
     # parser.add_argument('--batch-size', type=int, help='Batch size', default=32)
-    parser.add_argument('--num-minibatches', type=int, help='Number of Mini Batch', default=32)
-    parser.add_argument('--update-epochs', type=int, help='the K epochs to update the policy', default=1) # original default: 10
+    parser.add_argument('--num-minibatches', type=int, help='Number of Mini Batch', default=32)     # original default: 32
+    parser.add_argument('--update-epochs', type=int, help='the K epochs to update the policy', default=5) # original default: 10
     parser.add_argument('--norm-adv', type=bool, help='Toggles advantages normalization', default=True)
     parser.add_argument('--ent-coef', type=float, help='coefficient of the entropy', default=0.0)
     parser.add_argument('--vf-coef', type=float, help='coefficient of the value function', default=0.5)
@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument('--sv', type=float, default=0.1)
     parser.add_argument('--alpha', type=float, default=0.9)
     parser.add_argument('--sigma', type=float, default=0.1)
-    parser.add_argument('--target-loss', type=float, default=100.0)
+    parser.add_argument('--target-loss', type=float, default=-1.0)
     return parser.parse_args()
 
 
@@ -95,7 +95,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10), env.observation_space)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
         return env
@@ -152,10 +152,11 @@ def main():
         args.exp = f'{args.env_id} {args.optim} {args.target_loss}' 
     
     wandb.init(
-        project="koala-rl1", # project name 
+        project="koala-rl4", # project name 
         entity="hossein_abdi-the-university-of-manchester",
         name=args.exp,
-        config=args                   # command line arguments
+        config=vars(args),                   # command line arguments
+        monitor_gym=True,
     )
 
     torch.manual_seed(args.seed)
@@ -266,6 +267,10 @@ def main():
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        wandb.log({
+                            "episodic_return": info["episode"]["r"],
+                            "episodic_length": info["episode"]["l"]
+                        }, step=global_step)
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -329,15 +334,15 @@ def main():
                 else:
                     optimizer.step()
                 
-                wandb.log({
-                    "loss": loss.item(),
-                    "pg_loss": pg_loss.item(),
-                    "v_loss": v_loss.item(),
-                    "entropy_loss": entropy_loss.item(),
-                    "advantage": b_advantages.mean(),
-                    "return": b_returns.mean(),
-                    "value": b_values.mean(),
-                })
+                # wandb.log({
+                #     "loss": loss.item(),
+                #     "pg_loss": pg_loss.item(),
+                #     "v_loss": v_loss.item(),
+                #     "entropy_loss": entropy_loss.item(),
+                #     "advantage": b_advantages[mb_inds].mean(),
+                #     "return": b_returns[mb_inds].mean(),
+                #     "value": b_values[mb_inds].mean(),
+                # })
 
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -354,15 +359,15 @@ def main():
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
-        # wandb.log({
-        #     "loss": loss.item(),
-        #     "pg_loss": pg_loss.item(),
-        #     "v_loss": v_loss.item(),
-        #     "entropy_loss": entropy_loss.item(),
-        #     "advantage": b_advantages.mean(),
-        #     "return": b_returns.mean(),
-        #     "value": b_values.mean(),
-        # })
+        wandb.log({
+            "loss": loss.item(),
+            "pg_loss": pg_loss.item(),
+            "v_loss": v_loss.item(),
+            "entropy_loss": entropy_loss.item(),
+            "advantage": b_advantages.mean(),
+            "return": b_returns.mean(),
+            "value": b_values.mean(),
+        }, step=global_step)
 
     # if args.save_model:
     #     model_path = f"runs/{args.exp}/{args.exp_name}.cleanrl_model"
