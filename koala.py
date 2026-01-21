@@ -231,10 +231,10 @@ class RL_KOALA(KOALABase):
             self,
             params,
             sigma: float = 1,
-            target_loss: float = 10,
-            q: float = 1,
+            target_loss: float = -5.0,
+            q: float = 0.0,           #default=1
             r: float = None,
-            alpha_r: float = 0.9,
+            alpha_r: float = 0.9,   #default=0.9
             weight_decay: float = 0.0,
             lr: float = 1,
             **kwargs):
@@ -292,6 +292,7 @@ class RL_KOALA(KOALABase):
 
                 layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"] 
                 # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"] 
+                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 + self.state["target_loss"] 
                 scale = group["lr"] * layer_loss * self.state["sigma"] / s
                 p.data.add_(-scale * p.grad)
 
