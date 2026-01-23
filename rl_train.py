@@ -337,16 +337,6 @@ def main():
                     optimizer.update(loss, loss_var)
                 else:
                     optimizer.step()
-                
-                # wandb.log({
-                #     "loss": loss.item(),
-                #     "pg_loss": pg_loss.item(),
-                #     "v_loss": v_loss.item(),
-                #     "entropy_loss": entropy_loss.item(),
-                #     "advantage": b_advantages[mb_inds].mean(),
-                #     "return": b_returns[mb_inds].mean(),
-                #     "value": b_values[mb_inds].mean(),
-                # })
 
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -372,25 +362,6 @@ def main():
             "Performance/return": b_returns.mean(),
             "Performance/value": b_values.mean(),
         }, step=global_step)
-
-    # if args.save_model:
-    #     model_path = f"runs/{args.exp}/{args.exp_name}.cleanrl_model"
-    #     torch.save(agent.state_dict(), model_path)
-    #     print(f"model saved to {model_path}")
-    #     from cleanrl_utils.evals.ppo_eval import evaluate
-
-    #     episodic_returns = evaluate(
-    #         model_path,
-    #         make_env,
-    #         args.env_id,
-    #         eval_episodes=10,
-    #         run_name=f"{run_name}-eval",
-    #         Model=Agent,
-    #         device=device,
-    #         gamma=args.gamma,
-    #     )
-    #     for idx, episodic_return in enumerate(episodic_returns):
-    #         writer.add_scalar("eval/episodic_return", episodic_return, idx)
 
 
     envs.close()
