@@ -46,7 +46,7 @@ def parse_args():
     # parser.add_argument('--model', type=str, help='Model name: resnet18', default='resnet18_cifar')
     parser.add_argument('--optim', type=str, help='Optimizer name: adagrad, sgd, koala-v/m...',
                         choices=list(optimizers.keys()), required=True)
-    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='MountainCarContinuous-v0')
+    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='Ant-v4')
     parser.add_argument('--total-timesteps', type=int, help='total timesteps of the experiments', default=1000000)
     parser.add_argument('--num-envs', type=int, help='the number of parallel game environments', default=1)
     parser.add_argument('--num-steps', type=int, help='the number of steps to run in each environment per policy rollout', default=2048)
@@ -150,7 +150,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_loss}' 
-        args.exp = f'{args.optim}, default'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, target=+100'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}', # project name 
