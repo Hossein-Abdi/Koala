@@ -230,11 +230,11 @@ class RL_KOALA(KOALABase):
     def __init__(
             self,
             params,
-            sigma: float = 1,
-            target_loss: float = -5.0,
+            sigma: float = 0.01,         #default=1
+            target_eps: float = -5.0,
             q: float = 0.0,           #default=1
             r: float = None,
-            alpha_r: float = 0.9,   #default=0.9
+            alpha_r: float = 0.9,     #default=0.9
             weight_decay: float = 0.0,
             lr: float = 1,
             **kwargs):
@@ -259,7 +259,7 @@ class RL_KOALA(KOALABase):
 
         # Initialize state
         self.state["sigma"] = sigma
-        self.state["target_loss"] = target_loss
+        self.state["target_eps"] = target_eps
         self.state["q"] = q
         if r is not None:
             self.state["r"] = r
@@ -290,9 +290,10 @@ class RL_KOALA(KOALABase):
 
                 s = self.state["sigma"] * (layer_grad_norm ** 2) + cur_r
 
-                layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"] 
-                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_loss"] 
-                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 + self.state["target_loss"] 
+                # layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_eps"]
+                layer_loss = self.state["target_eps"] 
+                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_eps"] 
+                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 + self.state["target_eps"] 
                 scale = group["lr"] * layer_loss * self.state["sigma"] / s
                 p.data.add_(-scale * p.grad)
 

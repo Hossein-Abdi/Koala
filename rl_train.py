@@ -46,7 +46,7 @@ def parse_args():
     # parser.add_argument('--model', type=str, help='Model name: resnet18', default='resnet18_cifar')
     parser.add_argument('--optim', type=str, help='Optimizer name: adagrad, sgd, koala-v/m...',
                         choices=list(optimizers.keys()), required=True)
-    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='Ant-v4')
+    parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='MountainCarContinuous-v0')
     parser.add_argument('--total-timesteps', type=int, help='total timesteps of the experiments', default=1000000)
     parser.add_argument('--num-envs', type=int, help='the number of parallel game environments', default=1)
     parser.add_argument('--num-steps', type=int, help='the number of steps to run in each environment per policy rollout', default=2048)
@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument('--sv', type=float, default=0.1)
     parser.add_argument('--alpha', type=float, default=0.9)
     parser.add_argument('--sigma', type=float, default=0.1)
-    parser.add_argument('--target-loss', type=float, default=-5.0)
+    parser.add_argument('--target-eps', type=float, default=0.5)
     return parser.parse_args()
 
 
@@ -149,8 +149,8 @@ def main():
     args.num_iterations = args.total_timesteps // args.batch_size
 
     if args.exp == 'AUTO':
-        # args.exp = f'{args.env_id} {args.optim} {args.target_loss}' 
-        args.exp = f'{args.optim}, target=+100'                ################################ Here is the Legend Explanation ################################
+        # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
+        args.exp = f'{args.optim}, test print'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}', # project name 
@@ -197,7 +197,7 @@ def main():
             extra_params['sigma'] = args.sigma
         elif args.optim == 'koala-rl':
             extra_params['sigma'] = args.sigma
-            extra_params['target_loss'] = args.target_loss
+            extra_params['target_eps'] = args.target_eps
         else:
             extra_params['sw'] = args.sw
             extra_params['sv'] = args.sv
@@ -328,7 +328,7 @@ def main():
                     _adjust_learning_rate(optimizer, calculate_lr(epoch, start))
                 
                 if args.optim == 'koala-rl':
-                    optimizer.state['target_loss'] = 1.0 * optimizer.state['target_loss']       # 1.0001
+                    optimizer.state['target_eps'] = 1.0 * optimizer.state['target_eps']       # 1.0001
                 optimizer.zero_grad()
                 loss.backward()
                 # nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
