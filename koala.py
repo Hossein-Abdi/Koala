@@ -254,6 +254,9 @@ class RL_KOALA(KOALABase):
 
         self.eps = 1e-9
 
+        self.alpha = 0.9
+        self.loss_ema = 0.0
+
         for group in self.param_groups:
             group["lr"] = lr
 
@@ -278,6 +281,8 @@ class RL_KOALA(KOALABase):
             cur_r = self.state["r"].get_avg()
         else:
             cur_r = self.state["r"]
+        
+        self.loss_ema = self.alpha * self.loss_ema + (1 - self.alpha) * loss.detach()       # Exponential Moving Average on loss
 
         max_grad_entries = list()
         for group in self.param_groups:
@@ -291,9 +296,11 @@ class RL_KOALA(KOALABase):
                 s = self.state["sigma"] * (layer_grad_norm ** 2) + cur_r
 
                 # layer_loss = loss + 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_eps"]
-                layer_loss = self.state["target_eps"] 
-                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 - self.state["target_eps"] 
-                # layer_loss = 0.5 * self.state["weight_decay"] * p.norm(p=2) ** 2 + self.state["target_eps"] 
+                # layer_loss = self.state["target_eps"] 
+                target_loss = self.loss_ema - self.state["target_eps"]
+                # target_loss = loss - self.state["target_eps"]
+                layer_loss = loss - target_loss
+
                 scale = group["lr"] * layer_loss * self.state["sigma"] / s
                 p.data.add_(-scale * p.grad)
 
