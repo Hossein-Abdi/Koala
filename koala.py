@@ -309,3 +309,98 @@ class RL_KOALA(KOALABase):
         hh_approx = torch.max(torch.stack(max_grad_entries))
 
         self.state["sigma"] -= self.state["sigma"] ** 2 * hh_approx
+
+
+class FULL_KOALA(KOALABase):
+    def __init__(
+            self,
+            params,
+            sigma: float = 0.01,         #default=1
+            target_eps: float = 0.5,
+            q: float = 1.0e-6,           #default=1
+            r: float = None,
+            alpha_r: float = 0.9,     #default=0.9
+            weight_decay: float = 0.0,
+            lr: float = 1,
+            **kwargs):
+        """
+        Implementation of the KOALA-V(Vanilla) optimizer
+
+        :param params: parameters to optimize
+        :param sigma: initial value of P_k
+        :param q: fixed constant Q_k
+        :param r: fixed constant R_k (None for online estimation)
+        :param alpha_r: smoothing coefficient for online estimation of R_k
+        :param weight_decay: weight decay
+        :param lr: learning rate
+        :param kwargs:
+        """
+        super(FULL_KOALA, self).__init__(params, **kwargs)
+
+        self.eps = 1e-9
+        self.alpha = 0.9
+        self.loss_ema = 0.0
+
+        for group in self.param_groups:
+            group["lr"] = lr
+
+        # Initialize state
+        self.state["sigma"] = sigma
+        self.state["target_eps"] = target_eps
+        self.state["q"] = q
+        if r is not None:
+            self.state["r"] = r
+        else:
+            self.state["r"] = ExpAverage(alpha_r, 1.0)
+        self.state["weight_decay"] = weight_decay
+
+    @torch.no_grad()
+    def predict(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue               
+                state = self.state[p]
+
+                if "covariance_matrix" in state:
+                    state["covariance_matrix"].diagonal().add_(self.state["q"])
+
+    @torch.no_grad()
+    def update(self, loss: torch.FloatTensor, loss_var: torch.FloatTensor):
+        if isinstance(self.state["r"], ExpAverage):
+            self.state["r"].update(loss_var)
+            cur_r = self.state["r"].get_avg()
+        else:
+            cur_r = self.state["r"]
+        
+        self.loss_ema = self.alpha * self.loss_ema + (1 - self.alpha) * loss.detach()       # Exponential Moving Average on loss
+        target_loss = self.loss_ema - self.state["target_eps"]
+        error_loss = loss - target_loss
+
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None or p.grad.norm(p=2) < self.eps:
+                    continue
+
+                layer_grad = p.grad + self.state["weight_decay"] * p
+                layer_grad_flat = layer_grad.view(1, -1)
+                n_params = layer_grad_flat.size(1)
+
+                state = self.state[p]
+
+                if "covariance_matrix" not in state:
+                    state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
+
+                PHt = torch.matmul(state["covariance_matrix"], layer_grad_flat.t())
+                S = torch.matmul(layer_grad_flat, PHt).item() + cur_r
+
+                if S < self.eps:
+                    S = self.eps
+
+                K = PHt / S
+
+                update_step = group["lr"] * K * error_loss
+                p.data.sub_(update_step.view_as(p))
+
+                HP = torch.matmul(layer_grad_flat, state["covariance_matrix"])
+                state["covariance_matrix"].sub_(torch.matmul(K, HP))
