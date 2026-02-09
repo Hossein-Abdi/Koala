@@ -21,6 +21,7 @@ from training_funcs import train, validate, lr_multiplier_functor, _adjust_learn
 
 import os
 import time
+import copy
 from dataclasses import dataclass
 
 import gymnasium as gym
@@ -38,7 +39,9 @@ elif torch.backends.mps.is_available():
 else:
     device = torch.device("cpu")
 
-device = torch.device("cpu")
+# device = torch.device("cpu")
+
+dtype = torch.float32
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -81,6 +84,12 @@ def parse_args():
     parser.add_argument('--alpha', type=float, default=0.9)
     parser.add_argument('--sigma', type=float, default=0.1)
     parser.add_argument('--target-eps', type=float, default=0.5)
+    # Linesearch specific args
+    parser.add_argument('--do-linesearch', type=bool, default=True)
+    parser.add_argument('--max-kl', type=float, default=0.01)
+    parser.add_argument('--linesearch-attempts', type=int, default=10)
+    parser.add_argument('--linesearch-fraction', type=float, default=0.5)
+    parser.add_argument('--linesearch-success', type=bool, default=False)
     return parser.parse_args()
 
 
@@ -138,7 +147,7 @@ class Agent(nn.Module):
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x), probs
 
 
 
@@ -150,7 +159,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, test'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, kl-test'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}', # project name 
@@ -186,7 +195,7 @@ def main():
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs).to(dtype).to(device)
 
     # Manage extra params
     is_koala = args.optim.startswith('koala')
@@ -226,22 +235,22 @@ def main():
                                          gamma=args.step_gamma)
 
     # Configure criterion
-    criterion = nn.CrossEntropyLoss(reduction='none').to(device)
+    criterion = nn.CrossEntropyLoss(reduction='none').to(dtype).to(device)
 
     # ALGO Logic: Storage setup
-    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
-    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
-    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(dtype).to(device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(dtype).to(device)
+    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
-    next_obs = torch.Tensor(next_obs).to(device)
-    next_done = torch.zeros(args.num_envs).to(device)
+    next_obs = torch.Tensor(next_obs).to(dtype).to(device)
+    next_done = torch.zeros(args.num_envs).to(dtype).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
         for step in range(0, args.num_steps):
@@ -251,7 +260,7 @@ def main():
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -259,8 +268,8 @@ def main():
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
-            rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            rewards[step] = torch.tensor(reward).to(dtype).to(device).view(-1)
+            next_obs, next_done = torch.Tensor(next_obs).to(dtype).to(device), torch.Tensor(next_done).to(dtype).to(device)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -276,7 +285,7 @@ def main():
         # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)
-            advantages = torch.zeros_like(rewards).to(device)
+            advantages = torch.zeros_like(rewards).to(dtype).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
                 if t == args.num_steps - 1:
@@ -306,7 +315,8 @@ def main():
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue, old_policy = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                old_params = [(p.clone().detach()) for p in agent.parameters()]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -337,6 +347,22 @@ def main():
                     optimizer.update(loss, loss_var)
                 else:
                     optimizer.step()
+
+                if args.do_linesearch:
+                    for attempt in range(args.linesearch_attempts):
+                        _, _, _, _, new_policy = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                        with torch.no_grad():
+                            kl = torch.distributions.kl_divergence(old_policy, new_policy).sum(dim=-1).mean()
+                        if kl <= args.max_kl:
+                            args.linesearch_success = True
+                            break
+                        with torch.no_grad():
+                            for p, p_old in zip(agent.parameters(), old_params):
+                                p.data.copy_(p_old + args.linesearch_fraction * (p.data - p_old))
+                    if not args.linesearch_success:
+                        with torch.no_grad():
+                            for p, p_old in zip(agent.parameters(), old_params):
+                                p.data.copy_(p_old)
 
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
