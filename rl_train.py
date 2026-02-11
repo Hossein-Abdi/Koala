@@ -159,7 +159,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, kl-test'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, test'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}', # project name 
@@ -343,6 +343,7 @@ def main():
                 loss.backward()
                 # nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 if is_koala:
+                    optimizer.predict()
                     loss_var = torch.mean(torch.pow(loss, 2))
                     optimizer.update(loss, loss_var)
                 else:

@@ -317,7 +317,7 @@ class FULL_KOALA(KOALABase):
             params,
             sigma: float = 0.01,         #default=1
             target_eps: float = 0.5,
-            q: float = 1.0e-6,           #default=1
+            q: float = 1.0e-1,           #default=1
             r: float = None,
             alpha_r: float = 0.9,     #default=0.9
             weight_decay: float = 0.0,
@@ -362,8 +362,11 @@ class FULL_KOALA(KOALABase):
                     continue               
                 state = self.state[p]
 
-                if "covariance_matrix" in state:
-                    state["covariance_matrix"].diagonal().add_(self.state["q"])
+                if "covariance_matrix" not in state:
+                    n_params = p.numel()
+                    state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
+
+                state["covariance_matrix"].diagonal().add_(self.state["q"])
 
     @torch.no_grad()
     def update(self, loss: torch.FloatTensor, loss_var: torch.FloatTensor):
@@ -384,12 +387,8 @@ class FULL_KOALA(KOALABase):
 
                 layer_grad = p.grad + self.state["weight_decay"] * p
                 layer_grad_flat = layer_grad.view(1, -1)
-                n_params = layer_grad_flat.size(1)
 
                 state = self.state[p]
-
-                if "covariance_matrix" not in state:
-                    state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
 
                 PHt = torch.matmul(state["covariance_matrix"], layer_grad_flat.t())
                 S = torch.matmul(layer_grad_flat, PHt).item() + cur_r
