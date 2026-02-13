@@ -159,7 +159,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, test'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, pred q=0.1, KL'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}', # project name 
