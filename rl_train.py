@@ -50,8 +50,8 @@ def parse_args():
     parser.add_argument('--optim', type=str, help='Optimizer name: adagrad, sgd, koala-v/m...',
                         choices=list(optimizers.keys()), required=True)
     parser.add_argument('--env_id', type=str, help='Environment to run the experiment on', default='MountainCarContinuous-v0')
-    parser.add_argument('--total-timesteps', type=int, help='total timesteps of the experiments', default=1000000)
-    parser.add_argument('--num-envs', type=int, help='the number of parallel game environments', default=1)
+    parser.add_argument('--total-timesteps', type=int, help='total timesteps of the experiments', default=5000000) # original default: 1000000
+    parser.add_argument('--num-envs', type=int, help='the number of parallel game environments', default=5) # original default: 1
     parser.add_argument('--num-steps', type=int, help='the number of steps to run in each environment per policy rollout', default=2048)
     parser.add_argument('--gamma', type=float, help='the discount factor gamma', default=0.99)
     parser.add_argument('--gae-lambda', type=float, help='the lambda for the general advantage estimation', default=0.95)
@@ -159,10 +159,10 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, pred q=0.1, KL'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, q=0.1, KL'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
-        project=f'{args.env_id}', # project name 
+        project=f'{args.env_id}-5M', # project name 
         entity="hossein_abdi-the-university-of-manchester",
         name=args.exp,
         config=vars(args),                   # command line arguments
