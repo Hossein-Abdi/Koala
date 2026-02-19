@@ -159,7 +159,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, q=0.1, KL'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, action clipped'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}-5M', # project name 
@@ -244,6 +244,9 @@ def main():
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(dtype).to(device)
+    action_min = torch.as_tensor(envs.action_space.low).to(dtype).to(device)
+    action_max = torch.as_tensor(envs.action_space.high).to(dtype).to(device)
+
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -266,6 +269,7 @@ def main():
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
+            action = action_min + (torch.tanh(action) + 1.0) * 0.5 * (action_max - action_min)  # Clipping action between max and min
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(dtype).to(device).view(-1)
