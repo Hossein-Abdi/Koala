@@ -340,6 +340,7 @@ class FULL_KOALA(KOALABase):
         self.eps = 1e-9
         self.alpha = 0.9
         self.loss_ema = 0.0
+        self.max_norm = 0.5
 
         for group in self.param_groups:
             group["lr"] = lr
@@ -385,7 +386,9 @@ class FULL_KOALA(KOALABase):
                 if p.grad is None or p.grad.norm(p=2) < self.eps:
                     continue
 
-                layer_grad = p.grad + self.state["weight_decay"] * p
+                clip_coef = min(1.0, self.max_norm / (p.grad.data.norm(2).item() + self.eps))
+
+                layer_grad = p.grad * clip_coef + self.state["weight_decay"] * p
                 layer_grad_flat = layer_grad.view(1, -1)
 
                 state = self.state[p]
