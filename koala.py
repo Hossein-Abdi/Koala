@@ -365,7 +365,8 @@ class FULL_KOALA(KOALABase):
 
                 if "covariance_matrix" not in state:
                     n_params = p.numel()
-                    state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
+                    # state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
+                    state["covariance_matrix"] = torch.rand(n_params, n_params, device=p.device) * self.state["sigma"]
 
                 state["covariance_matrix"].diagonal().add_(self.state["q"])
 
