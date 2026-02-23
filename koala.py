@@ -379,7 +379,8 @@ class FULL_KOALA(KOALABase):
             cur_r = self.state["r"]
         
         self.loss_ema = self.alpha * self.loss_ema + (1 - self.alpha) * loss.detach()       # Exponential Moving Average on loss
-        target_loss = self.loss_ema - self.state["target_eps"]
+        # target_loss = self.loss_ema - self.state["target_eps"]
+        target_loss = loss - self.state["target_eps"]
         error_loss = loss - target_loss
 
         for group in self.param_groups:
