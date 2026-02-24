@@ -159,7 +159,7 @@ def main():
 
     if args.exp == 'AUTO':
         # args.exp = f'{args.env_id} {args.optim} {args.target_eps}' 
-        args.exp = f'{args.optim}, noEMA loss'                ################################ Here is the Legend Explanation ################################
+        args.exp = f'{args.optim}, PD init Cov'                ################################ Here is the Legend Explanation ################################
     
     wandb.init(
         project=f'{args.env_id}-5M', # project name 
