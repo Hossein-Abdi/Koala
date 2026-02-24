@@ -338,8 +338,8 @@ class FULL_KOALA(KOALABase):
         super(FULL_KOALA, self).__init__(params, **kwargs)
 
         self.eps = 1e-9
-        self.alpha = 0.9
-        self.loss_ema = 0.0
+        # self.alpha = 0.9
+        # self.loss_ema = 0.0
         self.max_norm = 0.5
 
         for group in self.param_groups:
@@ -366,7 +366,12 @@ class FULL_KOALA(KOALABase):
                 if "covariance_matrix" not in state:
                     n_params = p.numel()
                     # state["covariance_matrix"] = torch.diag(torch.rand(n_params, device=p.device) * self.state["sigma"])
-                    state["covariance_matrix"] = torch.rand(n_params, n_params, device=p.device) * self.state["sigma"]
+                    # state["covariance_matrix"] = torch.rand(n_params, n_params, device=p.device) * self.state["sigma"]
+                    A = torch.randn(n_params, n_params, device=p.device)
+                    state["covariance_matrix"] = (
+                        A @ A.T * self.state["sigma"]
+                        + self.eps * torch.eye(n_params, device=p.device)
+                    )
 
                 state["covariance_matrix"].diagonal().add_(self.state["q"])
 
@@ -378,8 +383,9 @@ class FULL_KOALA(KOALABase):
         else:
             cur_r = self.state["r"]
         
-        self.loss_ema = self.alpha * self.loss_ema + (1 - self.alpha) * loss.detach()       # Exponential Moving Average on loss
+        # self.loss_ema = self.alpha * self.loss_ema + (1 - self.alpha) * loss.detach()       # Exponential Moving Average on loss
         # target_loss = self.loss_ema - self.state["target_eps"]
+        # self.state["target_eps"] = 1.001 * self.state["target_eps"]
         target_loss = loss - self.state["target_eps"]
         error_loss = loss - target_loss
 
