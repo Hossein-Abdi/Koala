@@ -421,4 +421,4 @@ class FULL_KOALA(KOALABase):
 
                 HP = torch.matmul(layer_grad_flat, state["covariance_matrix"])
                 state["covariance_matrix"].sub_(torch.matmul(K, HP))
-                # state["covariance_matrix"] = (state["covariance_matrix"] + state["covariance_matrix"].t()) * 0.5        # enforce symmetry
+                state["covariance_matrix"] = (state["covariance_matrix"] + state["covariance_matrix"].t()) * 0.5        # enforce symmetry
