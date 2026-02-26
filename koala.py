@@ -348,7 +348,7 @@ class FULL_KOALA(KOALABase):
         # self.alpha = 0.9
         # self.loss_ema = 0.0
         self.max_norm = 0.5
-        self.beta = 0.95
+        self.beta = 0.99
 
         for group in self.param_groups:
             group["lr"] = lr
