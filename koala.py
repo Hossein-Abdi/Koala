@@ -348,6 +348,7 @@ class FULL_KOALA(KOALABase):
         # self.alpha = 0.9
         # self.loss_ema = 0.0
         self.max_norm = 0.5
+        self.beta = 0.95
 
         for group in self.param_groups:
             group["lr"] = lr
@@ -380,6 +381,7 @@ class FULL_KOALA(KOALABase):
                         + self.eps * torch.eye(n_params, device=p.device)
                     )
 
+                state["covariance_matrix"].mul_(1/self.beta)        # Fading Memory
                 state["covariance_matrix"].diagonal().add_(self.state["q"])
 
     @torch.no_grad()
