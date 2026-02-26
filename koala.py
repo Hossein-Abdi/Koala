@@ -1,4 +1,5 @@
 import torch
+import math
 
 from util import ExpAverage
 
@@ -383,7 +384,7 @@ class FULL_KOALA(KOALABase):
                         + self.eps * torch.eye(n_params, device=p.device)
                     )
 
-                self.beta *= torch.exp(-self.tau * self.iteration).item(); self.iteration += 1; state["covariance_matrix"].mul_(1/self.beta)        # Fading Memory
+                self.beta *= math.exp(-self.tau * self.iteration).item(); self.iteration += 1; state["covariance_matrix"].mul_(1/self.beta)        # Fading Memory
                 state["covariance_matrix"].diagonal().add_(self.state["q"])
 
     @torch.no_grad()
