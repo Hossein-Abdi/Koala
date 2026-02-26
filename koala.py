@@ -349,6 +349,8 @@ class FULL_KOALA(KOALABase):
         # self.loss_ema = 0.0
         self.max_norm = 0.5
         self.beta = 0.99
+        self.iteration = 0
+        self.tau = 0.01
 
         for group in self.param_groups:
             group["lr"] = lr
@@ -381,7 +383,7 @@ class FULL_KOALA(KOALABase):
                         + self.eps * torch.eye(n_params, device=p.device)
                     )
 
-                state["covariance_matrix"].mul_(1/self.beta)        # Fading Memory
+                self.beta.mul_(torch.exp(-self.tau * self.iteration)); self.iteration += 1; state["covariance_matrix"].mul_(1/self.beta)        # Fading Memory
                 state["covariance_matrix"].diagonal().add_(self.state["q"])
 
     @torch.no_grad()
